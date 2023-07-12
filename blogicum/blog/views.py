@@ -35,20 +35,21 @@ class IndexListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        return get_select_related().annotate(comment_count=Comment('comments'))
+        return get_select_related()
 
 
-class PostDetailView(DetailView):
-    model = Post
-    template_name = 'blog/detail.html'
-    pk_url_kwarg = 'post_id'
-    context_object_name = 'post'
+class CommentUpdateView(UpdateView):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'blog/comment.html'
+    pk_url_kwarg = 'comment_id'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm
-        context['comments'] = self.object.comments.all()
-        return context
+
+class CommentDeleteView(DeleteView):
+    model = Comment
+    template_name = 'blog/comment.html'
+    success_url = reverse_lazy('blog:index')
+    pk_url_kwarg = 'comment_id'
 
 
 class ProfileListView(ListView):
@@ -69,20 +70,6 @@ class ProfileListView(ListView):
         context = super().get_context_data(**kwargs)
         context['profile'] = self.username
         return context
-
-
-class CommentUpdateView(UpdateView):
-    model = Comment
-    form_class = CommentForm
-    template_name = 'blog/comment.html'
-    pk_url_kwarg = 'comment_id'
-
-
-class CommentDeleteView(DeleteView):
-    model = Comment
-    template_name = 'blog/comment.html'
-    success_url = reverse_lazy('blog:index')
-    pk_url_kwarg = 'comment_id'
 
 
 class ProfileDetailView(DetailView):
@@ -140,6 +127,19 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
+class PostDetailView(DetailView):
+    model = Post
+    template_name = 'blog/detail.html'
+    pk_url_kwarg = 'post_id'
+    context_object_name = 'post'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = CommentForm
+        context['comments'] = self.object.comments.all()
+        return context
+
+
 class PostUpdateView(LoginRequiredMixin, UpdateView):
     model = Post
     form_class = PostForm
@@ -155,7 +155,6 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):
     model = Post
-    success_url = reverse_lazy('blog:delete_post')
     pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):

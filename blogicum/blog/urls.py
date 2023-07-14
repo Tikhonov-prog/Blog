@@ -41,14 +41,14 @@ urlpatterns = [
         name='category_posts'
     ),
     path(
-        'profile/<username>',
-        views.ProfileListView.as_view(),
-        name='profile'
+        'profile/<slug:username>/edit/',
+        views.ProfileUpdateView.as_view(),
+        name='edit_profile'
     ),
     path(
-        'profile/<slug:username>/edit',
-        views.ProfileDetailView.as_view(),
-        name='edit_profile'
+        'profile/<slug:username>/',
+        views.ProfileListView.as_view(),
+        name='profile'
     ),
     path(
         'posts/<int:post_id>/delete/',

@@ -1,6 +1,8 @@
 from django.contrib.auth.decorators import login_required
 from typing import Any, Dict
+from django.db import models
 from django.db.models.query import QuerySet
+from django.db.models import Count
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
@@ -12,8 +14,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import Post, Category, User, Comment
 from .forms import PostForm, ProfileForm, CommentForm
 
-FIRST_FIVE_PUBLICATION = 5
 
+FIRST_FIVE_PUBLICATION = 5
+PAGE_NUM = 10
 
 def get_select_related():
     """Функция для наследования"""
@@ -32,10 +35,15 @@ class IndexListView(ListView):
     """View функция Ленты записей."""
     model = Post
     template_name = 'blog/index.html'
-    paginate_by = 10
+    paginate_by = PAGE_NUM
+    ordering = ('-pub_date',)
 
-    def get_queryset(self):
-        return get_select_related()
+    def get_queryset(self) -> QuerySet[Any]:
+        return super().get_queryset().filter(
+            is_published=True,
+            pub_date__lte=timezone.now(),
+            category__is_published=True
+        ).annotate(comment_count=Count('comments'))
 
 
 class CommentUpdateView(UpdateView):
@@ -57,6 +65,7 @@ class ProfileListView(ListView):
     form_class = ProfileForm
     template_name = 'blog/profile.html'
     paginate_by = 10
+    pk_url_kwarg = 'username'
 
     def get_queryset(self) -> QuerySet[Any]:
         self.username = get_object_or_404(
@@ -95,6 +104,16 @@ class ProfileDetailView(DetailView):
         return context
 
 
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = ProfileForm
+    template_name = 'blog/profile.html'
+    pk_url_kwarg = 'username'
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
+
 class CategoryListView(ListView):
     model = Category
     template_name = 'blog/category.html'
@@ -119,6 +138,7 @@ class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post
     form_class = PostForm
     template_name = 'blog/create.html'
+    success_url = ''
 
     def form_valid(self, form):
         fields = form.save(commit=False)
@@ -132,6 +152,12 @@ class PostDetailView(DetailView):
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'post_id'
     context_object_name = 'post'
+
+    def get_queryset(self) -> QuerySet[Any]:
+        queryset = get_object_or_404(
+            Post, pk=self.kwargs['post_id']
+        )
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -1,22 +1,21 @@
-from django.contrib.auth.decorators import login_required
 from typing import Any, Dict
-from django.db import models
 from django.db.models.query import QuerySet
 from django.db.models import Count
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404
 from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView
 )
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-from .models import Post, Category, User, Comment
+from .models import Post, User, Comment
 from .forms import PostForm, ProfileForm, CommentForm
 
 
 FIRST_FIVE_PUBLICATION = 5
 PAGE_NUM = 10
+
 
 def get_select_related():
     """Функция для наследования"""
@@ -36,7 +35,7 @@ class IndexListView(ListView):
     model = Post
     template_name = 'blog/index.html'
     paginate_by = PAGE_NUM
-    ordering = ('-pub_date',)
+    ordering = ('-pub_date')
 
     def get_queryset(self) -> QuerySet[Any]:
         return super().get_queryset().filter(
@@ -52,6 +51,23 @@ class CommentUpdateView(UpdateView):
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
 
+    def dispatch(self, request, *args, **kwargs):
+        # Получаем объект по первичному ключу и автору или вызываем 404 ошибку.
+        get_object_or_404(
+            Comment,
+            pk=kwargs['comment_id'],
+            author=request.user
+        )
+        # Если объект был найден, то вызываем родительский метод,
+        # чтобы работа CBV продолжилась.
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse(
+            'blog:profile',
+            args=(self.request.user.get_username(),)
+        )
+
 
 class CommentDeleteView(DeleteView):
     model = Comment
@@ -64,16 +80,17 @@ class ProfileListView(ListView):
     model = Post
     form_class = ProfileForm
     template_name = 'blog/profile.html'
-    paginate_by = 10
-    pk_url_kwarg = 'username'
+    paginate_by = PAGE_NUM
+    slug_url_kwarg = 'username'
+    ordering = ('-pub_date',)
 
     def get_queryset(self) -> QuerySet[Any]:
         self.username = get_object_or_404(
             User, username=self.kwargs['username']
         )
-        return get_select_related().filter(
+        return super().get_queryset().filter(
             author=self.username
-        )
+        ).annotate(comment_count=Count('comments'))
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -84,7 +101,7 @@ class ProfileListView(ListView):
 class ProfileDetailView(DetailView):
     model = User
     template_name = 'blog/profile.html'
-    paginate_by = 10
+    paginate_by = PAGE_NUM
 
     def get_queryset(self) -> QuerySet[Any]:
         self.author = get_object_or_404(User, username=self.kwargs['username'])
@@ -106,62 +123,72 @@ class ProfileDetailView(DetailView):
 
 class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     model = User
-    form_class = ProfileForm
-    template_name = 'blog/profile.html'
-    pk_url_kwarg = 'username'
+    template_name = 'blog/user.html'
+    fields = ['first_name', 'last_name', 'username', 'email']
+    success_url = 'blog:profile'
 
-    def get_object(self, queryset=None):
+    def get_object(self):
         return self.request.user
+
+    def get_success_url(self):
+        return reverse(
+            'blog:profile',
+            args=(self.request.user.get_username(),)
+        )
 
 
 class CategoryListView(ListView):
-    model = Category
+    model = Post
     template_name = 'blog/category.html'
-    paginate_by = 10
+    paginate_by = PAGE_NUM
+    slug_url_kwarg = 'category_slug'
+    ordering = ('-pub_date')
 
     def get_queryset(self) -> QuerySet[Any]:
-        self.slug = get_object_or_404(
-            Category, slug=self.kwargs['category_slug']
-        )
-        return get_select_related().filter(
-            category=self.slug
-        )
+        return super().get_queryset().filter(
+            is_published=True,
+            pub_date__lte=timezone.now(),
+            category__is_published=True,
+            category__slug=self.kwargs['category_slug']
+        ).annotate(comment_count=Count('comments'))
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context['post_list'] = self.slug
-        context['category'] = self.slug
+        context['post_list'] = self.kwargs['category_slug']
+        context['category'] = self.kwargs['category_slug']
         return context
 
 
 class PostCreateView(LoginRequiredMixin, CreateView):
     model = Post
-    form_class = PostForm
+    fields = ('title', 'text', 'pub_date', 'location', 'category', 'image')
     template_name = 'blog/create.html'
-    success_url = ''
 
     def form_valid(self, form):
-        fields = form.save(commit=False)
-        fields.author = User.objects.get(username=self.request.user)
-        fields.save()
+        post = form.save(commit=False)
+        post.author = self.request.user
+        if post.pub_date > timezone.now():
+            post.published = False
+            post.save()
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy(
+            'blog:profile',
+            kwargs={'username': self.request.user.username}
+        )
 
 
 class PostDetailView(DetailView):
     model = Post
+    form_class = CommentForm
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'post_id'
     context_object_name = 'post'
 
-    def get_queryset(self) -> QuerySet[Any]:
-        queryset = get_object_or_404(
-            Post, pk=self.kwargs['post_id']
-        )
-        return queryset
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm
+        context['form'] = CommentForm()
         context['comments'] = self.object.comments.all()
         return context
 
@@ -169,18 +196,7 @@ class PostDetailView(DetailView):
 class PostUpdateView(LoginRequiredMixin, UpdateView):
     model = Post
     form_class = PostForm
-    template_name = 'blog/create_post.html'
-
-    def dispatch(self, request, *args, **kwargs):
-        # Получаем объект по первичному ключу и автору или вызываем 404 ошибку.
-        get_object_or_404(Post, pk=kwargs['pk'], author=request.user)
-        # Если объект был найден, то вызываем родительский метод,
-        # чтобы работа CBV продолжилась.
-        return super().dispatch(request, *args, **kwargs)
-
-
-class PostDeleteView(LoginRequiredMixin, DeleteView):
-    model = Post
+    template_name = 'blog/create.html'
     pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
@@ -190,32 +206,56 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
         # чтобы работа CBV продолжилась.
         return super().dispatch(request, *args, **kwargs)
 
-
-@login_required
-def add_comment(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
-    form = CommentForm(request.POST)
-    if form.is_valid():
-        comment = form.save(commit=False)
-        comment.author = request.user
-        comment.post = post
-        comment.save()
-    return redirect('blog:index')
+    def get_success_url(self):
+        return reverse(
+            'blog:profile',
+            args=(self.request.user.get_username(),)
+        )
 
 
-@login_required
-def post_edit(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
-    form = PostForm(request.POST or None, instance=post)
-    if request.method == 'POST':
-        if form.instance.author == request.user:
-            if form.is_valid():
-                form.save()
-                return redirect('blog:post_detail', post_id)
-        elif not request.user.is_authenticated:
-            return redirect('blog:post_detail', post_id)
-    context = {
-        'post': post,
-        'form': form
-    }
-    return render(request, 'blog/create.html', context)
+class PostDeleteView(LoginRequiredMixin, DeleteView):
+    model = Post
+    pk_url_kwarg = 'post_id'
+    template_name = 'blog/create.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        # Получаем объект по первичному ключу и автору или вызываем 404 ошибку.
+        get_object_or_404(Post, pk=kwargs['post_id'], author=request.user)
+        # Если объект был найден, то вызываем родительский метод,
+        # чтобы работа CBV продолжилась.
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse(
+            'blog:profile',
+            args=(self.request.user.get_username(),)
+        )
+
+
+class CommentCreateView(CreateView):
+    model = Comment
+    form_class = CommentForm
+    template_name = 'blog/comment.html'
+    pk_url_kwarg = 'post_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.post_data = get_object_or_404(
+            Post,
+            pk=self.kwargs['post_id'],
+            pub_date__lte=timezone.now(),
+            is_published=True,
+            category__is_published=True,
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        post = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        form.instance.author = self.request.user
+        form.instance.post = post
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse(
+            'blog:post_detail',
+            kwargs={"post_id": self.kwargs["post_id"]}
+        )

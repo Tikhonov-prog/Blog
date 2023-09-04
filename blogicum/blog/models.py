@@ -108,6 +108,7 @@ class Post(PublishedAndCreatedField):
     )
 
     class Meta:
+        ordering = ('-pub_date',)
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
         default_related_name = 'posts'

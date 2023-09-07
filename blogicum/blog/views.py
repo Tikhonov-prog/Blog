@@ -12,7 +12,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 
 from .models import Category, Post, User, Comment
-from .forms import PostForm, ProfileForm, CommentForm
+from .forms import ProfileForm, CommentForm
 
 
 PAGE_NUM = 10
@@ -71,7 +71,10 @@ class CommentDeleteView(LoginRequiredMixin, DeleteView):
             raise PermissionDenied(
                 "Вы не аутентифицированы и не можете удалить этот комментарий."
             )
-        if self.request.user != comment.author and not self.request.user.is_superuser:
+        if (
+            self.request.user != comment.author
+            and not self.request.user.is_superuser
+        ):
             raise PermissionDenied(
                 'Вы не можете удалить этот комментарий,'
                 'так как не являетесь его автором или администратором.'
@@ -247,14 +250,23 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
                 pk=kwargs['post_id'],
             )
         if not request.user.is_authenticated:
-            return redirect(reverse('blog:post_detail', kwargs={'post_id': self.kwargs['post_id']}))
+            return redirect(reverse(
+                'blog:post_detail',
+                kwargs={'post_id': self.kwargs['post_id']})
+            )
         if request.user != post.author:
-            return redirect(reverse('blog:post_detail', kwargs={'post_id': self.kwargs['post_id']}))
+            return redirect(reverse(
+                'blog:post_detail',
+                kwargs={'post_id': self.kwargs['post_id']})
+            )
         else:
             return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
-        return reverse('blog:post_detail', kwargs={'post_id': self.kwargs['post_id']})
+        return reverse(
+            'blog:post_detail',
+            kwargs={'post_id': self.kwargs['post_id']}
+        )
 
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):

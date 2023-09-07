@@ -215,9 +215,9 @@ class PostDetailView(DetailView):
         """При попытке пользователя, не являющегося автором поста,
         зайти на неопубликованный пост, его перекинет на главную."""
         if self.get_object().author != self.request.user and (
-            self.get_object().is_published is False or
-            self.get_object().category.is_published is False or
-            self.get_object().pub_date > timezone.now()
+            self.get_object().is_published is False 
+            or self.get_object().category.is_published is False
+            or self.get_object().pub_date > timezone.now()
         ):
             raise http.Http404
         return super().dispatch(request, *args, **kwargs)

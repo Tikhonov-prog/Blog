@@ -99,13 +99,6 @@ class Post(PublishedAndCreatedField):
         blank=True,
         upload_to='posts_images'
     )
-    comment = models.ForeignKey(
-        'Comment',
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name='comments'
-    )
 
     class Meta:
         ordering = ('-pub_date',)
@@ -122,11 +115,13 @@ class Post(PublishedAndCreatedField):
 
 
 class Comment(models.Model):
-    text = models.TextField('Текст коментария')
+    ''''Модель коментариев связанная с моделью Post'''
+    text = models.TextField('Текст коментария', blank=False)
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
-        related_name='comments'
+        related_name='comments',
+        blank=False
     )
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(

@@ -215,9 +215,9 @@ class PostDetailView(DetailView):
         """При попытке пользователя, не являющегося автором поста,
         зайти на неопубликованный пост, его перекинет на главную."""
         if self.get_object().author != self.request.user and (
-                self.get_object().is_published is False or
-                self.get_object().category.is_published is False or
-                self.get_object().pub_date > timezone.now()
+            self.get_object().is_published is False or
+            self.get_object().category.is_published is False or
+            self.get_object().pub_date > timezone.now()
         ):
             raise http.Http404
         return super().dispatch(request, *args, **kwargs)
@@ -246,9 +246,9 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         post = get_object_or_404(
-                Post,
-                pk=kwargs['post_id'],
-            )
+            Post,
+            pk=kwargs['post_id'],
+        )
         if not request.user.is_authenticated:
             return redirect(reverse(
                 'blog:post_detail',

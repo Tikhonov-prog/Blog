@@ -56,9 +56,6 @@ class CommentAdmin(admin.ModelAdmin):
         'author',
         'created_at'
     )
-    list_editable = (
-        'text',
-    )
 
 
 admin.site.empty_value_display = 'Не задано'

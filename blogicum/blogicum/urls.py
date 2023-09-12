@@ -8,7 +8,6 @@ from django.views.generic.edit import CreateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('auth/', include('django.contrib.auth.urls')),
     path(
         'auth/registration/',
         CreateView.as_view(
@@ -25,6 +24,7 @@ urlpatterns = [
         ),
         name='password_change',
     ),
+    path('auth/', include('django.contrib.auth.urls')),
     path(
         'logout/',
         views.LogoutView.as_view(template_name='registration/logged_out.html'),

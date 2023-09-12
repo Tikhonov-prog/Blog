@@ -1,12 +1,8 @@
 from typing import Any, Dict
 
-from django import http
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import PermissionDenied
-from django.db import models
 from django.db.models import Count
 from django.db.models.query import QuerySet
-from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -29,9 +25,11 @@ class CommentDispatchMixin:
         )
         if request.user == comment.author:
             return super().dispatch(request, *args, **kwargs)
-        return redirect(reverse(
+        return redirect(
+            reverse(
                 'blog:post_detail',
-                kwargs={'post_id': self.kwargs['post_id']}))
+                kwargs={'post_id': self.kwargs['post_id']})
+            )
 
 
 class PostDispatchMixin:

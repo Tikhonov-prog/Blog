@@ -107,7 +107,7 @@ class Post(PublishedAndCreatedField):
         default_related_name = 'posts'
 
     def get_absolute_url(self):
-        # С помощью функции reverse() возвращаем URL объекта.
+        '''С помощью функции reverse() возвращаем URL объекта.'''
         return reverse('blog:post_detail', kwargs={'pk': self.pk})
 
     def __str__(self):
@@ -116,6 +116,7 @@ class Post(PublishedAndCreatedField):
 
 class Comment(models.Model):
     ''''Модель коментариев связанная с моделью Post'''
+
     text = models.TextField('Текст коментария', blank=False)
     post = models.ForeignKey(
         Post,
@@ -127,8 +128,12 @@ class Comment(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
+        related_name='comments',
         verbose_name='Автор публикации'
     )
 
     class Meta:
         ordering = ('created_at',)
+
+    def __str__(self):
+        return self.title[:TITLE_LIMIT]

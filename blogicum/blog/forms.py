@@ -1,15 +1,16 @@
 from django import forms
 
-from .models import Post, User, Comment
+from .models import Comment, Post, User
 
 
 class PostForm(forms.ModelForm):
     '''Форма на основе модели Post'''
+
     class Meta:
         model = Post
-        fields = '__all__'
+        exclude = ['author']
         widgets = {
-            'post': forms.DateInput(attrs={'type': 'date'})
+            'post': forms.DateTimeInput(attrs={'datetime-local': 'format'})
         }
 
 
@@ -18,7 +19,7 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ['first_name', 'last_name', 'username']
 
 
 class CommentForm(forms.ModelForm):

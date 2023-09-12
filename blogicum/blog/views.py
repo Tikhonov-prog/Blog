@@ -25,11 +25,10 @@ class CommentDispatchMixin:
         )
         if request.user == comment.author:
             return super().dispatch(request, *args, **kwargs)
-        return redirect(
-            reverse(
-                'blog:post_detail',
-                kwargs={'post_id': self.kwargs['post_id']})
-            )
+        return redirect(reverse(
+            'blog:post_detail',
+            kwargs={'post_id': self.kwargs['post_id']}
+        ))
 
 
 class PostDispatchMixin:
@@ -44,8 +43,8 @@ class PostDispatchMixin:
             return super().dispatch(request, *args, **kwargs)
         return redirect(reverse(
                 'blog:post_detail',
-                kwargs={'post_id': self.kwargs['post_id']})
-            )
+                kwargs={'post_id': self.kwargs['post_id']}
+        ))
 
 
 class IndexListView(ListView):
@@ -113,7 +112,7 @@ class ProfileListView(ListView):
         return super().get_queryset().filter(
             is_published=True,
             pub_date__lte=timezone.now()
-        ).annotate(comment_count=Count('comments'))
+            ).annotate(comment_count=Count('comments'))
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
